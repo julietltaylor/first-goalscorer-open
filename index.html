@@ -504,6 +504,19 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
       </div>
     </div>
   </div>
+  <!-- PICKS OPEN/CLOSE TOGGLE -->
+  <div class="card" style="margin-bottom:1rem;border-color:rgba(34,197,94,.35)">
+    <div class="admin-sec-title" style="color:var(--green)">🎯 Pick Window</div>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:.85rem">
+      Opens automatically when you confirm the lineup. Closes at kick-off. Use the override for delayed KOs or connection issues.
+    </p>
+    <div style="display:flex;align-items:center;gap:1rem">
+      <button class="btn sm" id="picks-open-btn" onclick="togglePicksOpen()"
+        style="background:var(--red);color:#fff">🔴 Picks Closed</button>
+      <span id="picks-open-status" style="font-size:.82rem;color:var(--muted)">Waiting for lineup confirmation</span>
+    </div>
+  </div>
+
   <!-- TEST MODE TOGGLE -->
   <div class="card" style="margin-bottom:1rem;border-color:rgba(245,158,11,.35)">
     <div class="admin-sec-title" style="color:var(--amber)">🧪 Test Mode</div>
@@ -832,6 +845,7 @@ let S = {
   },
   lineupConfirmed: false,
   testMode: false,  // Admin can enable to bypass time windows
+  picksOpen: false,  // Admin or lineup confirmation opens picks
   requirePin: true,  // Admin can disable PIN requirement
   lineupFixtureId: null,
   lineupFetchedAt: null,
@@ -845,6 +859,7 @@ function loadState() {
       // Only load live picks and any admin changes — keep season data fixed
       if (p.picks) S.picks = p.picks;
       if (p.requirePin !== undefined) S.requirePin = p.requirePin;
+      if (p.picksOpen !== undefined) S.picksOpen = p.picksOpen;
       if (p.pins) S.pins = {...S.pins, ...p.pins};
       if (p.baseOrder) S.baseOrder = p.baseOrder;
       if (p.players) S.players = p.players;
@@ -1259,8 +1274,8 @@ function renderPickSlots(fix, containerId, showPickArea) {
     return;
   }
 
-  // Pick allowed once lineup confirmed (squad has players)
-  const lineupReady = (S.starters && S.starters.length > 0) || (S.squad && S.squad.length > 0);
+  // Pick allowed when admin has opened picks (auto or manual)
+  const lineupReady = S.picksOpen || S.testMode;
 
   if (lineupReady) {
     // All players available — duplicate picks allowed in this game
@@ -1298,7 +1313,7 @@ function renderPickSlots(fix, containerId, showPickArea) {
       </div>`;
   } else {
     area.className = 'your-pick-area';
-    area.innerHTML = `<div class="pick-locked-msg">⏳ Picking opens once the lineup is confirmed</div>`;
+    area.innerHTML = `<div class="pick-locked-msg">⏳ Picks are closed — waiting for lineup confirmation</div>`;
   }
 }
 
@@ -1378,7 +1393,8 @@ function submitPick(fixId, selId) {
   const val = document.getElementById(selId)?.value;
   if (!val) { toast('Please select a player', 'err'); return; }
   if (!fix) { toast('Fixture not found', 'err'); return; }
-  // No pick order in this game — anyone can pick once lineup confirmed
+  // Check picks are open
+  if (!S.picksOpen && !S.testMode) { toast('⏳ Picks are not open yet — waiting for lineup', 'err'); return; }
   // Duplicate picks allowed — multiple players can pick the same scorer
   if (!S.picks[fix.id]) S.picks[fix.id] = {};
   S.picks[fix.id][S.currentUser] = val;
@@ -1576,6 +1592,9 @@ function renderResults() {
 //  ADMIN
 // ══════════════════════════════════════════
 function renderAdmin() {
+  // Sync picks open/close button state
+  updatePicksOpenButton();
+
   // Sync PIN requirement button state
   const pinBtn = document.getElementById('pin-req-btn');
   const pinStatus = document.getElementById('pin-req-status');
@@ -1817,6 +1836,7 @@ function confirmResult() {
   } else {
     S.currentPot++;
   }
+  S.picksOpen = false; // close picks for next game
   saveState();
   saveResult_toSheets(fix); // sync result to JSONBin
   if (winners.length) {
@@ -2063,6 +2083,43 @@ async function fetchLineupSilent() {
   }
 }
 
+
+async function togglePicksOpen() {
+  S.picksOpen = !S.picksOpen;
+  saveState();
+  // Sync to JSONBin
+  try {
+    const data = await dbGet();
+    data.picksOpen = S.picksOpen;
+    await dbWrite(data);
+  } catch(e) { console.warn('Failed to sync picks state:', e.message); }
+  updatePicksOpenButton();
+  renderAll();
+  toast(S.picksOpen ? '🟢 Picks are now OPEN!' : '🔴 Picks are now CLOSED', 'ok');
+}
+
+function updatePicksOpenButton() {
+  const btn = document.getElementById('picks-open-btn');
+  const status = document.getElementById('picks-open-status');
+  if (!btn || !status) return;
+  if (S.picksOpen) {
+    btn.textContent = '🟢 Picks Open';
+    btn.style.background = 'var(--green)';
+    btn.style.color = '#111';
+    status.textContent = 'Players can submit their picks now';
+  } else {
+    btn.textContent = '🔴 Picks Closed';
+    btn.style.background = 'var(--red)';
+    btn.style.color = '#fff';
+    const fix = getNextFix();
+    const ko = fix ? getKickoff(fix) : null;
+    if (ko && new Date() >= ko) {
+      status.textContent = 'Game has kicked off — picks closed';
+    } else {
+      status.textContent = 'Waiting for lineup confirmation';
+    }
+  }
+}
 
 async function togglePinRequirement() {
   S.requirePin = !S.requirePin;
@@ -2769,6 +2826,10 @@ function applyRemoteData(data) {
   if (data.requirePin !== undefined) {
     S.requirePin = data.requirePin;
   }
+  // Load picks open/closed state from JSONBin
+  if (data.picksOpen !== undefined) {
+    S.picksOpen = data.picksOpen;
+  }
   // Fixtures from JSONBin fully override hardcoded ones
   // JSONBin is the single source of truth for fixture data
   if (data.fixtures && data.fixtures.length > 0) {
@@ -2838,6 +2899,9 @@ async function saveResult_toSheets(fix) {
 
     // Save rotated pick order
     data.baseOrder = S.baseOrder;
+
+    // Close picks for next game
+    data.picksOpen = false;
 
     // Save updated fixture in fixtures array
     if (data.fixtures) {
@@ -3161,7 +3225,15 @@ async function confirmJsonLineup() {
     await dbWrite(data);
     statusEl.textContent = '✅ Squad saved — ' + starters.length + ' starters, ' + subs.length + ' subs';
     statusEl.style.color = 'var(--green)';
-    toast('✅ Squad confirmed!', 'ok');
+    // Auto-open picks when lineup is confirmed
+  S.picksOpen = true;
+  saveState();
+  try {
+    const d2 = await dbGet();
+    d2.picksOpen = true;
+    await dbWrite(d2);
+  } catch(e) {}
+  toast('✅ Squad confirmed — picks are now open!', 'ok');
   } catch(e) {
     statusEl.textContent = '✅ Saved locally (sync failed: ' + e.message + ')';
     statusEl.style.color = 'var(--amber)';
@@ -3383,6 +3455,15 @@ setInterval(() => {
     // Auto-fetch lineup every 5 mins within 90 mins of KO
     if (Date.now() % 300000 < 1100) {
       scheduleLineupRefresh();
+    }
+    // Auto-close picks at kick-off time
+    if (S.picksOpen && fix) {
+      const ko = getKickoff(fix);
+      if (ko && now >= ko && !S.testMode) {
+        S.picksOpen = false;
+        saveState();
+        toast('⏰ Picks closed — game has kicked off', 'ok');
+      }
     }
   } catch(e) { /* suppress ticker errors */ }
 }, 1000);
