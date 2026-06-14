@@ -313,8 +313,8 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
 <div id="login-screen">
   <div class="login-card">
     <div class="login-icon">🔵</div>
-    <h1>Seagulls <em>First</em> Scorer</h1>
-    <p class="login-sub">2025/26 Season · Pick Brighton's first goalscorer · Pot rolls over!</p>
+    <h1>First Goalscorer <em>Open</em></h1>
+    <p class="login-sub">Pick the first goalscorer · Everyone can win · Pot rolls over!</p>
     <div class="player-grid" id="player-grid"></div>
     <div class="admin-section">
       <p>🔐 Admin access</p>
@@ -361,12 +361,12 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
     <div class="fix-meta" id="h-meta">Syncing with server…</div>
     <div class="pot-badge" id="h-pot">🏆 Pot: — pts</div>
     <div class="countdown-wrap">
-      <div class="countdown-label" id="h-cd-label">Pick window opens in</div>
+      <div class="countdown-label" id="h-cd-label">Kick-off in</div>
       <div class="countdown-display waiting" id="h-cd">—:——</div>
       <div class="window-opens" id="h-window-opens"></div>
     </div>
     <div class="pick-order-wrap">
-      <div class="pick-order-title" id="h-order-title">🎯 Pick Order</div>
+      <div class="pick-order-title" id="h-order-title">🎯 Picks</div>
       <div class="pick-slots" id="h-pick-slots"></div>
     </div>
     <div class="your-pick-area" id="h-pick-area">
@@ -398,7 +398,7 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
       <div class="window-opens" id="p-window-opens"></div>
     </div>
     <div class="pick-order-wrap" style="margin-bottom:.85rem">
-      <div class="pick-order-title">🎯 Pick Order</div>
+      <div class="pick-order-title">🎯 Picks</div>
       <div class="pick-slots" id="p-pick-slots"></div>
     </div>
     <div class="your-pick-area" id="p-pick-area">
@@ -449,7 +449,7 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
       <div class="admin-sec-title">✅ Confirm Match Result</div>
       <div class="form-group"><label>Fixture</label><select id="a-fix-sel" onchange="loadAdminPicks()"><option value="">Select…</option></select></div>
       <div class="form-group"><label>Result (e.g. W 2-1)</label><input type="text" id="a-result" placeholder="W 2-1"></div>
-      <div class="form-group"><label>First Brighton Goalscorer</label><select id="a-scorer"><option value="">Select…</option><option value="no_goal">No Brighton goalscorer</option></select></div>
+      <div class="form-group"><label>First Goalscorer</label><select id="a-scorer"><option value="">Select…</option><option value="no_goal">No goalscorer</option></select></div>
       <div class="form-group"><label>Goal Time</label><input type="text" id="a-time" placeholder="e.g. 23'">
         <div style="font-size:.72rem;color:var(--muted);margin-top:.3rem">⚠️ Any picks submitted after this goal time will be disqualified</div>
       </div>
@@ -537,15 +537,13 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
 
   <div class="card" style="margin-bottom:1rem">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.85rem">
-      <div class="admin-sec-title" style="margin:0">🔢 Pick Order (drag to reorder)</div>
+      <div class="admin-sec-title" style="margin:0">📣 Share with Players</div>
       <button class="btn sm" onclick="sharePickOrder()" style="background:var(--green)">📋 Copy for WhatsApp</button>
     </div>
     <p style="font-size:.78rem;color:var(--muted);margin-bottom:.85rem">
-      <strong style="color:var(--gold)">Premier League games:</strong> The person who picked 1st moves to last after each game — fully automatic.<br>
-      <strong style="color:var(--gold)">Cup games (FA Cup / Carabao Cup):</strong> No pick order — all players can pick simultaneously as soon as the window opens.<br>
-      You can drag to manually adjust the order if needed.
+      In this game there's <strong style="color:var(--gold)">no pick order</strong> — everyone picks at once when the lineup is confirmed.
+      Multiple players can pick the same goalscorer, and everyone who picks correctly wins the pot.
     </p>
-    <div class="admin-order-list" id="order-list"></div>
     <div id="share-output" style="display:none;margin-top:.85rem">
       <label>Tap to select all, then copy and paste into WhatsApp</label>
       <textarea id="share-text" readonly
@@ -1324,7 +1322,6 @@ function updateCountdowns() {
   if (!fix) return;
   const ko = getKickoff(fix);
   const now = new Date();
-  const order = getPickOrder(getCompletedCount(), fix ? fix.comp : null);
 
   ['h', 'p'].forEach(prefix => {
     const cdEl = document.getElementById(prefix+'-cd');
@@ -1332,40 +1329,41 @@ function updateCountdowns() {
     const openEl = document.getElementById(prefix+'-window-opens');
     if (!cdEl) return;
 
-    const myIdx = order.indexOf(S.currentUser);
     const fp = getFixPicks(fix.id);
-    const myStatus = myIdx >= 0 ? getSlotStatus(fix, myIdx) : 'locked';
     const myPick = fp[S.currentUser];
 
+    // Already picked
     if (myPick) {
-      cdEl.className = 'countdown-display waiting'; cdEl.textContent = 'Picked ✅';
-      labelEl.textContent = 'Your pick is in'; openEl.textContent = ''; return;
+      cdEl.className = 'countdown-display waiting';
+      cdEl.textContent = 'Picked ✅';
+      labelEl.textContent = 'Your pick is locked in';
+      openEl.textContent = '⚽ ' + myPick;
+      return;
     }
+
+    // Game kicked off
     if (now >= ko) {
-      cdEl.className = 'countdown-display urgent'; cdEl.textContent = 'In progress';
-      labelEl.textContent = '⚽ Game underway — picks still open'; openEl.textContent = 'Pick will be valid if submitted before first Brighton goal'; return;
+      cdEl.className = 'countdown-display urgent';
+      cdEl.textContent = 'In progress';
+      labelEl.textContent = '⚽ Game underway';
+      openEl.textContent = S.picksOpen ? 'Picks still open — admin override' : 'Picks closed';
+      return;
     }
-    if (myStatus === 'active') {
-      const wc = getWindowClose(fix, myIdx);
-      const ms = wc ? wc.getTime() - now.getTime() : 0;
-      cdEl.className = ms < 60000 ? 'countdown-display urgent' : 'countdown-display active';
+
+    // Picks open — count down to kick-off
+    if (S.picksOpen || S.testMode) {
+      const ms = ko.getTime() - now.getTime();
+      cdEl.className = ms < 5*60000 ? 'countdown-display urgent' : 'countdown-display active';
       cdEl.textContent = fmtCountdown(ms);
-      labelEl.textContent = '⏱ Your pick window closes in';
-      openEl.textContent = `Window closes at ${fmtTime(wc)}`;
-    } else if (myStatus === 'waiting') {
-      const wo = getWindowOpen(fix, myIdx, fp);
-      const ms = wo ? Math.max(0, wo.getTime() - now.getTime()) : 0;
-      cdEl.className = 'countdown-display waiting';
-      cdEl.textContent = fmtCountdown(ms);
-      labelEl.textContent = `Your pick window opens in (you're #${myIdx+1})`;
-      openEl.textContent = `Your window opens at ${fmtTime(wo)}`;
+      labelEl.textContent = '🟢 Picks open — kick-off in';
+      openEl.textContent = 'Make your pick before kick-off!';
     } else {
-      const ws = new Date(ko.getTime() - 60*60*1000);
-      const ms = Math.max(0, ws.getTime() - now.getTime());
+      // Picks not open yet — count down to kick-off
+      const ms = ko.getTime() - now.getTime();
       cdEl.className = 'countdown-display waiting';
-      cdEl.textContent = ms > 0 ? fmtCountdown(ms) : '—';
-      labelEl.textContent = ms > 0 ? 'Pick window opens in (once lineup confirmed in WhatsApp)' : 'Pick window status unknown';
-      openEl.textContent = ms > 0 ? `Window opens at ${fmtTime(ws)} — once lineup confirmed in WhatsApp` : '';
+      cdEl.textContent = fmtCountdown(ms);
+      labelEl.textContent = 'Kick-off in';
+      openEl.textContent = '⏳ Picks open once the lineup is confirmed';
     }
   });
 }
@@ -1637,7 +1635,7 @@ function renderAdmin() {
   const sc = document.getElementById('a-scorer');
   const adminStarters = S.starters || [];
   const adminSubs = S.subs || [];
-  let adminOpts = '<option value="">Select…</option><option value="no_goal">No Brighton goalscorer</option>';
+  let adminOpts = '<option value="">Select…</option><option value="no_goal">No goalscorer</option>';
   if (adminStarters.length > 0 || adminSubs.length > 0) {
     if (adminStarters.length) adminOpts += `<optgroup label="⚽ Starting XI">${adminStarters.map(p=>`<option value="${p}">${p}</option>`).join('')}</optgroup>`;
     if (adminSubs.length) adminOpts += `<optgroup label="🔄 Substitutes">${adminSubs.map(p=>`<option value="${p}">${p}</option>`).join('')}</optgroup>`;
@@ -1732,6 +1730,8 @@ function renderAdmin() {
 }
 
 function renderOrderList() {
+  const ol = document.getElementById('order-list');
+  if (!ol) return; // No order list in this game
   const completedCount = getCompletedCount();
   const currentOrder = getPickOrder(completedCount);
   document.getElementById('order-list').innerHTML = S.baseOrder.map((p, i) => {
