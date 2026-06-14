@@ -1269,8 +1269,7 @@ function renderPickSlots(fix, containerId, showPickArea) {
   // In this game, players can change their pick — show current pick with option to change
   if (myPick) {
     area.className = 'your-pick-area';
-    area.innerHTML = `<div class="pick-submitted">✅ Your pick is locked in: <strong>${myPick}</strong>
-      <button class="btn sm ghost" style="margin-left:.5rem" onclick="changePick('${fix.id}','${areaId}')">Change</button></div>`;
+    area.innerHTML = `<div class="pick-submitted">✅ Your pick is locked in: <strong>${myPick}</strong></div>`;
     return;
   }
 
@@ -1395,6 +1394,9 @@ function submitPick(fixId, selId) {
   if (!fix) { toast('Fixture not found', 'err'); return; }
   // Check picks are open
   if (!S.picksOpen && !S.testMode) { toast('⏳ Picks are not open yet — waiting for lineup', 'err'); return; }
+  // Check player hasn't already picked — picks are final once locked in
+  const existingPick = (S.picks[fix.id] || {})[S.currentUser];
+  if (existingPick) { toast('🔒 Your pick is already locked in: ' + existingPick, 'err'); return; }
   // Duplicate picks allowed — multiple players can pick the same scorer
   if (!S.picks[fix.id]) S.picks[fix.id] = {};
   S.picks[fix.id][S.currentUser] = val;
@@ -1466,11 +1468,11 @@ function renderHome() {
   // Update lineup badge
   const badge = document.getElementById('lineup-badge');
   if (badge) {
-    if (S.lineupConfirmed) {
+    if (S.picksOpen || (S.starters && S.starters.length > 0)) {
       badge.style.background = 'rgba(34,197,94,.1)';
       badge.style.borderColor = 'rgba(34,197,94,.25)';
       badge.style.color = 'var(--green)';
-      badge.textContent = '✅ Lineup confirmed';
+      badge.textContent = S.picksOpen ? '🟢 Picks open' : '✅ Lineup confirmed';
     } else {
       badge.style.background = 'rgba(245,158,11,.1)';
       badge.style.borderColor = 'rgba(245,158,11,.25)';
@@ -2814,6 +2816,11 @@ function applyRemoteData(data) {
   if (data.pins) {
     Object.entries(data.pins).forEach(([name, pin]) => { S.pins[name] = pin; });
   }
+  // Load starters/subs from JSONBin
+  if (data.starters) S.starters = data.starters;
+  if (data.subs) S.subs = data.subs;
+  if (data.squad) S.squad = data.squad;
+
   // Load players from JSONBin (this game manages its own player list)
   if (data.players && data.players.length > 0) {
     S.players = data.players;
