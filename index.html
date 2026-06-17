@@ -2945,7 +2945,14 @@ async function autoSync() {
       const fix = getNextFix();
       if (fix) {
         const hDropdown = document.getElementById('pick-sel-h-pick-area');
-        if (!hDropdown || !hDropdown.value) renderPickSlots(fix, 'h-pick-slots', true);
+        const pDropdown = document.getElementById('pick-sel-p-pick-area');
+        const anySelection = (hDropdown && hDropdown.value) || (pDropdown && pDropdown.value);
+        if (!anySelection) {
+          renderPickSlots(fix, 'h-pick-slots', true);
+          if (document.getElementById('page-picks').classList.contains('active')) {
+            renderPickSlots(fix, 'p-pick-slots', true);
+          }
+        }
       }
     }
   } catch(e) { /* silent */ }
@@ -3447,16 +3454,15 @@ setInterval(() => {
   try {
     const fix = getNextFix();
     if (fix) {
+      // Check if EITHER dropdown has a selection — if so, skip ALL pick re-renders
+      const homeDropdown = document.getElementById('pick-sel-h-pick-area');
+      const picksDropdown = document.getElementById('pick-sel-p-pick-area');
+      const anySelection = (homeDropdown && homeDropdown.value) || (picksDropdown && picksDropdown.value);
+
       updateCountdowns();
-      if (Date.now() % 10000 < 1100) {
-        // Don't re-render pick slots if player has a value selected in the dropdown
-        // — this would destroy their selection before they can click Lock In
-        const homeDropdown = document.getElementById('pick-sel-h-pick-area');
-        const picksDropdown = document.getElementById('pick-sel-p-pick-area');
-        const homeHasSelection = homeDropdown && homeDropdown.value;
-        const picksHasSelection = picksDropdown && picksDropdown.value;
-        if (!homeHasSelection) renderPickSlots(fix, 'h-pick-slots', true);
-        if (!picksHasSelection && document.getElementById('page-picks').classList.contains('active')) {
+      if (Date.now() % 10000 < 1100 && !anySelection) {
+        renderPickSlots(fix, 'h-pick-slots', true);
+        if (document.getElementById('page-picks').classList.contains('active')) {
           renderPickSlots(fix, 'p-pick-slots', true);
         }
       }
