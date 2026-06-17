@@ -1406,12 +1406,18 @@ function submitPick(fixId, selId) {
   const existingPick = (S.picks[fix.id] || {})[S.currentUser];
   if (existingPick) { toast('🔒 Your pick is already locked in: ' + existingPick, 'err'); return; }
   // Duplicate picks allowed — multiple players can pick the same scorer
-  if (!S.picks[fix.id]) S.picks[fix.id] = {};
-  S.picks[fix.id][S.currentUser] = val;
-  S.picks[fix.id][S.currentUser+'_time'] = new Date().toISOString();
+  // Use STRING key consistently to match JSONBin (avoids string/int split bug)
+  const pk = String(fix.id);
+  if (!S.picks[pk]) S.picks[pk] = {};
+  S.picks[pk][S.currentUser] = val;
+  S.picks[pk][S.currentUser+'_time'] = new Date().toISOString();
+  // Also remove any integer-keyed duplicate to prevent confusion
+  if (S.picks[fix.id] && typeof fix.id === 'number' && pk !== fix.id) {
+    // nothing — fix.id and pk differ only by type
+  }
   _pendingPick = ''; // clear in-progress selection
   saveState();
-  savePick_toSheets(fix.id, S.currentUser, val); // sync to JSONBin
+  savePick_toSheets(pk, S.currentUser, val); // sync to JSONBin (string key)
   toast(`✅ Pick locked in: ${val}`, 'ok');
   renderHome(); renderPickSlots(fix, 'h-pick-slots', true);
   if (document.getElementById('page-picks').classList.contains('active')) renderPicksPage();
@@ -2723,7 +2729,8 @@ async function dbPost(action, body) {
   const current = await dbGet();
 
   if (action === 'savePick') {
-    const { fixtureId, player, pick, pickTime } = body;
+    const { player, pick, pickTime } = body;
+    const fixtureId = String(body.fixtureId); // normalise
     if (!current.picks) current.picks = {};
     if (!current.picks[fixtureId]) current.picks[fixtureId] = {};
     // This game allows duplicate picks and lets players change their pick
@@ -2888,6 +2895,7 @@ function applyRemoteData(data) {
 }
 
 async function savePick_toSheets(fixtureId, player, pick) {
+  fixtureId = String(fixtureId); // normalise to string key
   try {
     const res = await dbPost('savePick', { fixtureId, player, pick, pickTime: new Date().toISOString() });
     if (res.error) toast('⚠️ ' + res.error, 'err');
@@ -2944,9 +2952,12 @@ async function autoSync() {
     if (!data.picks) return;
     let changed = false;
     Object.entries(data.picks).forEach(([fixId, fixPicks]) => {
-      if (!S.picks[fixId]) S.picks[fixId] = {};
+      // Normalise: merge into whichever key form already exists, preferring the integer
+      const intKey = parseInt(fixId);
+      const targetKey = (S.picks[intKey] !== undefined) ? intKey : fixId;
+      if (!S.picks[targetKey]) S.picks[targetKey] = {};
       Object.entries(fixPicks).forEach(([k, v]) => {
-        if (S.picks[fixId][k] !== v) { S.picks[fixId][k] = v; changed = true; }
+        if (S.picks[targetKey][k] !== v) { S.picks[targetKey][k] = v; changed = true; }
       });
     });
     if (changed) {
@@ -3288,7 +3299,12 @@ function isWinnerOf(fix, player) {
 
 // Helper: safely get picks for a fixture regardless of string/int key
 function getFixPicks(fid) {
-  return S.picks[fid] || S.picks[String(fid)] || S.picks[parseInt(fid)] || {};
+  // Merge picks from both string and integer keys to avoid type-split bugs
+  const intKey = parseInt(fid);
+  const strKey = String(fid);
+  const a = S.picks[intKey] || {};
+  const b = S.picks[strKey] || {};
+  return { ...a, ...b };
 }
 
 
