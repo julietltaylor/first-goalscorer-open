@@ -1841,7 +1841,9 @@ function confirmResult() {
   for (const f of sorted) {
     if (f.id === fixId) { fix.potWon = winners.length ? pot : 0; break; }
     if (f.result === 'TBD') break;
-    if (f.winners && f.winners.length) pot = 1; else pot++;
+    // Use f.winner (persisted string) — f.winners array only exists in-memory
+    const hadWinner = (f.winner && f.winner.length > 0) || (f.winners && f.winners.length);
+    if (hadWinner) pot = 1; else pot++;
   }
   if (!winners.length) fix.potWon = 0;
 
