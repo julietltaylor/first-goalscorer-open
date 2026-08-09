@@ -796,11 +796,9 @@ const BRIGHTON_TEAM_ID = 51;
 // winner = name of person who picked correctly, potWon = points awarded
 // Fixtures now come entirely from JSONBin — no hardcoded fixtures
 // Brighton 2025/26 season is archived in JSONBin under "Brighton 2025-26"
-const SEASON_RESULTS = [
-  {id:50, datetime:'2026-06-17T21:00', comp:'World Cup', opp:'Croatia', ha:'H', result:'TBD', scorer:null, goalTime:null, winner:null, potWon:0},
-  {id:51, datetime:'2026-06-23T21:00', comp:'World Cup', opp:'Ghana',   ha:'H', result:'TBD', scorer:null, goalTime:null, winner:null, potWon:0},
-  {id:52, datetime:'2026-06-27T22:00', comp:'World Cup', opp:'Panama',  ha:'A', result:'TBD', scorer:null, goalTime:null, winner:null, potWon:0},
-];
+// No hardcoded fixtures — JSONBin is the single source of truth.
+// Hardcoding fixtures here causes deleted games to reappear on every load.
+const SEASON_RESULTS = [];
 
 // Brighton 2025/26 squad
 const SQUAD = [
@@ -2857,18 +2855,10 @@ function applyRemoteData(data) {
   if (data.picksOpen !== undefined) {
     S.picksOpen = data.picksOpen;
   }
-  // Fixtures from JSONBin fully override hardcoded ones
-  // JSONBin is the single source of truth for fixture data
+  // JSONBin is the single source of truth for fixtures — REPLACE, don't merge.
+  // Merging meant a fixture deleted in JSONBin would reappear from local/hardcoded data.
   if (data.fixtures && data.fixtures.length > 0) {
-    data.fixtures.forEach(remoteFix => {
-      const idx = S.fixtures.findIndex(f => String(f.id) === String(remoteFix.id));
-      if (idx >= 0) {
-        // Fully replace the hardcoded fixture with JSONBin version
-        S.fixtures[idx] = { ...S.fixtures[idx], ...remoteFix };
-      } else {
-        S.fixtures.push(remoteFix);
-      }
-    });
+    S.fixtures = data.fixtures.map(f => ({ ...f }));
   }
   // Also apply results to hardcoded completed fixtures
   if (data.results) {
