@@ -835,7 +835,7 @@ let S = {
   points: {},       // loaded from JSONBin on startup
   correctPicks: {}, // loaded from JSONBin on startup
   currentPot: 1, // recalculated from results on sync
-  fixCounter: 44,
+  fixCounter: 44,  // legacy — new fixture ids are derived from max existing id
   // Player PINs — admin can update these. Default 1234 for all.
   pins: {
     'Juliet':'1234','Mick':'1234','Claire':'1234','Andy':'1234',
@@ -1867,16 +1867,35 @@ function confirmResult() {
   renderAll(); renderAdmin();
 }
 
-function addFixture() {
+async function addFixture() {
   const dt = document.getElementById('a-date').value;
   const comp = document.getElementById('a-comp').value;
   const opp = document.getElementById('a-opp').value.trim();
   const ha = document.getElementById('a-ha').value;
   if (!dt || !opp) { toast('Fill in all fields', 'err'); return; }
-  S.fixtures.push({id:S.fixCounter++,datetime:dt,comp,opp,ha,result:'TBD',scorer:null,goalTime:null,winner:null,potWon:0});
-  saveState(); toast(`✅ ${opp} added`, 'ok'); renderAdmin();
+
+  // Derive the next id from the fixtures that actually exist, not a fixed counter.
+  // A hardcoded counter clashes once fixtures are bulk-loaded with higher ids.
+  const maxId = S.fixtures.reduce((m, f) => Math.max(m, parseInt(f.id) || 0), 0);
+  const newFix = {id: maxId + 1, datetime: dt, comp, opp, ha, result:'TBD', scorer:null, goalTime:null, winner:null, potWon:0};
+
+  S.fixtures.push(newFix);
+  saveState();
+  renderAll(); renderAdmin();
   document.getElementById('a-date').value = '';
   document.getElementById('a-opp').value = '';
+
+  // Must write to JSONBin — fixtures live there, so a local-only add is wiped on next sync
+  try {
+    const data = await dbGet();
+    if (!data.fixtures) data.fixtures = [];
+    data.fixtures = data.fixtures.filter(f => String(f.id) !== String(newFix.id));
+    data.fixtures.push(newFix);
+    await dbWrite(data);
+    toast(`✅ ${opp} added`, 'ok');
+  } catch(e) {
+    toast(`⚠️ ${opp} saved locally but not synced — try again`, 'err');
+  }
 }
 
 async function addPlayer() {
