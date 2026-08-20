@@ -561,7 +561,7 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
   </div>
   <div class="card" style="margin-bottom:1rem">
     <div class="admin-sec-title">👥 Players &amp; PINs</div>
-    <div class="row" style="margin-bottom:.85rem;gap:.5rem"><input type="text" id="a-new-player" placeholder="New player name"><button class="btn sm" onclick="addPlayer()">➕ Add</button></div>
+    <div class="row" style="margin-bottom:.85rem;gap:.5rem"><input type="text" id="a-new-player" placeholder="New player name" onkeydown="if(event.key==='Enter')addPlayer()"><button class="btn sm" onclick="addPlayer()">➕ Add player</button></div>
     <div class="players-chips" id="players-chips"></div>
     <hr>
     <p style="font-size:.75rem;color:var(--muted);margin-bottom:.75rem">Change a player's 4-digit PIN. Default for all players is 1234.</p>
@@ -578,7 +578,7 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
   </div>
   <div class="card" style="margin-bottom:1rem">
     <div class="admin-sec-title">⚽ Brighton Squad</div>
-    <div class="row" style="margin-bottom:.85rem;gap:.5rem"><input type="text" id="a-new-squad" placeholder="Player name"><button class="btn sm" onclick="addSquadPlayer()">➕ Add</button></div>
+    <div class="row" style="margin-bottom:.85rem;gap:.5rem"><input type="text" id="a-new-squad" placeholder="Squad player name" onkeydown="if(event.key==='Enter')addSquadPlayer()"><button class="btn sm" onclick="addSquadPlayer()">➕ Add to squad</button></div>
     <div class="players-chips" id="squad-chips"></div>
   </div>
   <!-- LINEUP ENTRY -->
@@ -1380,19 +1380,6 @@ function updateCountdowns() {
 //  SUBMIT PICK
 // ══════════════════════════════════════════
 
-function changePick(fixId, areaId) {
-  // Allow player to change their pick — clear it and re-render the pick form
-  const fix = S.fixtures.find(f => f.id === parseInt(fixId));
-  if (!fix) return;
-  if (S.picks[fix.id]) {
-    delete S.picks[fix.id][S.currentUser];
-    delete S.picks[fix.id][S.currentUser + '_time'];
-  }
-  saveState();
-  renderHome();
-  if (document.getElementById('page-picks').classList.contains('active')) renderPicksPage();
-}
-
 function submitPick(fixId, selId) {
   const fix = S.fixtures.find(f => f.id === parseInt(fixId));
   // Use dropdown value, or fall back to the captured pending pick
@@ -1432,10 +1419,11 @@ function lbSorted() {
 
 function renderLbRows(players) {
   if (!players.length) return '<div class="empty"><div class="ei">🏆</div>No data</div>';
-  let prev = -1, rank = 0, disp = 0;
+  let prevPts = -1, prevPicks = -1, rank = 0, disp = 0;
   return players.map(p => {
     rank++;
-    if (p.points !== prev) disp = rank;
+    // Only share a rank when points AND correct picks match — the stated tiebreak
+    if (p.points !== prevPts || p.picks !== prevPicks) disp = rank;
     prev = p.points;
     const emoji = disp===1?'🥇':disp===2?'🥈':disp===3?'🥉':disp;
     const isMe = p.name === S.currentUser;
@@ -1899,8 +1887,9 @@ async function addFixture() {
 }
 
 async function addPlayer() {
-  const n = document.getElementById('a-new-player').value.trim();
-  if (!n) { toast('Enter a name', 'err'); return; }
+  const el = document.getElementById('a-new-player');
+  const n = el ? el.value.trim() : '';
+  if (!n) { toast('Type a name in the Players box first', 'err'); if (el) el.focus(); return; }
   if (S.players.includes(n)) { toast('Already exists', 'err'); return; }
   S.players.push(n);
   saveState(); buildLoginGrid(); renderAdmin();
@@ -1925,15 +1914,28 @@ async function removePlayer(n) {
   } catch(e) { console.warn('Failed to sync players:', e.message); }
 }
 function addSquadPlayer() {
-  const n = document.getElementById('a-new-squad').value.trim();
-  if (!n) { toast('Enter a name', 'err'); return; }
+  const el = document.getElementById('a-new-squad');
+  const n = el ? el.value.trim() : '';
+  if (!n) { toast('Type a name in the Squad box first', 'err'); if (el) el.focus(); return; }
   S.squad.push(n); saveState(); renderAdmin();
   document.getElementById('a-new-squad').value = '';
-  toast(`✅ ${n} added`, 'ok');
+  syncSquad_toDb().then(() => toast(`✅ ${n} added`, 'ok'));
 }
 function removeSquad(n) {
   S.squad = S.squad.filter(p => p !== n);
-  saveState(); renderAdmin(); toast(`${n} removed`, 'ok');
+  saveState(); renderAdmin();
+  syncSquad_toDb().then(() => toast(`${n} removed`, 'ok'));
+}
+
+// Squad drives the pick dropdown for everyone, so it has to live in JSONBin
+async function syncSquad_toDb() {
+  try {
+    const data = await dbGet();
+    data.squad    = S.squad;
+    data.starters = S.starters || [];
+    data.subs     = S.subs || [];
+    await dbWrite(data);
+  } catch(e) { toast('⚠️ Squad saved locally but not synced', 'err'); }
 }
 
 // ══════════════════════════════════════════
@@ -2223,19 +2225,15 @@ function updatePin() {
   document.getElementById('a-pin-val').value = '';
   document.getElementById('a-pin-player').value = '';
   renderAdmin();
-  toast(`✅ PIN updated for ${player}`, 'ok');
+  // PINs must reach JSONBin or the player still can't log in on their own device
+  dbPost('savePin', { player, pin })
+    .then(() => toast(`✅ PIN updated for ${player}`, 'ok'))
+    .catch(e => toast('⚠️ PIN saved locally but not synced — try again', 'err'));
 }
 
 
 function hardReset() {
-  if (confirm('This will clear all saved picks and reset the app. Continue?')) {
-    localStorage.removeItem(LS_VERSION);
-    location.reload();
-  }
-}
-
-function hardReset() {
-  if (confirm('This will clear saved data and reload. Continue?')) {
+  if (confirm('This will clear saved data on this device and reload. Continue?')) {
     localStorage.removeItem(LS_VERSION);
     location.reload();
   }
@@ -2272,7 +2270,10 @@ function resetAllPicks() {
   populateResetPlayers();
   renderAdmin();
   renderAll();
-  toast(`✅ All picks reset for ${fix.opp}`, 'ok');
+  // Must clear in JSONBin too, or the next sync pulls the picks straight back
+  dbPost('resetPick', { fixtureId: fixId })
+    .then(() => toast(`✅ All picks reset for ${fix.opp}`, 'ok'))
+    .catch(e => toast('⚠️ Reset locally but not synced — try again', 'err'));
 }
 
 function resetPlayerPick() {
@@ -2290,7 +2291,10 @@ function resetPlayerPick() {
   populateResetPlayers();
   renderAdmin();
   renderAll();
-  toast(`✅ ${player}'s pick reset`, 'ok');
+  // Must clear in JSONBin too, or the next sync pulls the pick straight back
+  dbPost('resetPick', { fixtureId: fixId, player })
+    .then(() => toast(`✅ ${player}'s pick reset`, 'ok'))
+    .catch(e => toast('⚠️ Reset locally but not synced — try again', 'err'));
 }
 
 
@@ -2497,9 +2501,22 @@ function confirmManualLineup() {
   S.squad = allSelected;
   S.lineupConfirmed = true;
   S.lineupFetchedAt = new Date().toISOString();
+  S.picksOpen = true;   // match the Paste JSON tab — confirming a lineup opens picks
   saveState();
 
-  document.getElementById('lineup-status').textContent = '✅ Squad confirmed!';
+  // Manual tab previously saved locally only, so nobody else ever saw the lineup
+  (async () => {
+    try {
+      const data = await dbGet();
+      data.starters  = newStarters;
+      data.subs      = newSubs;
+      data.squad     = allSelected;
+      data.picksOpen = true;
+      await dbWrite(data);
+    } catch(e) { toast('⚠️ Lineup saved locally but not synced', 'err'); }
+  })();
+
+  document.getElementById('lineup-status').textContent = '✅ Squad confirmed — picks are open!';
   document.getElementById('lineup-status').style.color = 'var(--green)';
   document.getElementById('lineup-paste').value = '';
 
@@ -3504,10 +3521,8 @@ setInterval(() => {
         }
       }
     }
-    // Auto-fetch lineup every 5 mins within 90 mins of KO
-    if (Date.now() % 300000 < 1100) {
-      scheduleLineupRefresh();
-    }
+    // (Removed) auto lineup fetch — it called a Netlify function that no longer
+    // exists on GitHub Pages, so it just 404'd every 5 minutes before kick-off.
     // Auto-close picks at kick-off time
     if (S.picksOpen && fix) {
       const ko = getKickoff(fix);
