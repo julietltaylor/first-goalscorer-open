@@ -239,6 +239,7 @@ label{font-size:.73rem;color:var(--muted);display:block;margin-bottom:.32rem;fon
 .comp-tag.pl{background:rgba(61,25,91,.6);color:#c084fc;border:1px solid rgba(192,132,252,.2);}
 .comp-tag.fa{background:rgba(200,16,46,.2);color:#f87171;border:1px solid rgba(248,113,113,.2);}
 .comp-tag.lc{background:rgba(0,166,80,.2);color:#4ade80;border:1px solid rgba(74,222,128,.2);}
+.comp-tag.eu{background:rgba(0,82,180,.25);color:#60a5fa;border:1px solid rgba(96,165,250,.25);}
 .fix-opp{flex:1;font-weight:500;}
 .fix-ha{font-size:.72rem;color:var(--muted);}
 .fix-res{font-family:ui-monospace,'SF Mono',Menlo,Monaco,Consolas,monospace;font-size:.78rem;font-weight:500;width:46px;text-align:center;flex-shrink:0;}
@@ -465,7 +466,7 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
       <!-- ADD FIXTURE -->
       <div id="fix-tab-add">
         <div class="form-group"><label>Date & Kick-off Time</label><input type="datetime-local" id="a-date"></div>
-        <div class="form-group"><label>Competition</label><select id="a-comp"><option value="Premier League">Premier League</option><option value="FA Cup">FA Cup</option><option value="Carabao Cup">Carabao Cup</option></select></div>
+        <div class="form-group"><label>Competition</label><select id="a-comp"><option value="Premier League">Premier League</option><option value="FA Cup">FA Cup</option><option value="Carabao Cup">Carabao Cup</option><option value="Europe">Europe</option></select></div>
         <div class="form-group"><label>Opposition</label><input type="text" id="a-opp" placeholder="e.g. Arsenal"></div>
         <div class="form-group"><label>Home / Away</label><select id="a-ha"><option value="H">Home</option><option value="A">Away</option></select></div>
         <button class="btn full" onclick="addFixture()">➕ Add Fixture</button>
@@ -477,7 +478,7 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
           <select id="edit-fix-sel" onchange="loadFixtureForEdit()"><option value="">Select fixture…</option></select>
         </div>
         <div class="form-group"><label>Date & Kick-off Time</label><input type="datetime-local" id="edit-date"></div>
-        <div class="form-group"><label>Competition</label><select id="edit-comp"><option value="Premier League">Premier League</option><option value="FA Cup">FA Cup</option><option value="Carabao Cup">Carabao Cup</option></select></div>
+        <div class="form-group"><label>Competition</label><select id="edit-comp"><option value="Premier League">Premier League</option><option value="FA Cup">FA Cup</option><option value="Carabao Cup">Carabao Cup</option><option value="Europe">Europe</option></select></div>
         <div class="form-group"><label>Opposition</label><input type="text" id="edit-opp" placeholder="e.g. Arsenal"></div>
         <div class="form-group"><label>Home / Away</label><select id="edit-ha"><option value="H">Home</option><option value="A">Away</option></select></div>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap">
@@ -1106,8 +1107,8 @@ function fmtCountdown(ms) {
   if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
   return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
 }
-function compClass(c){return c==='Premier League'?'pl':c==='FA Cup'?'fa':'lc';}
-function compShort(c){return c==='Premier League'?'PL':c==='FA Cup'?'FA':'LC';}
+function compClass(c){return c==='Premier League'?'pl':c==='FA Cup'?'fa':c==='Europe'?'eu':'lc';}
+function compShort(c){return c==='Premier League'?'PL':c==='FA Cup'?'FA':c==='Europe'?'EUR':'LC';}
 
 // ══════════════════════════════════════════
 //  AUTH
