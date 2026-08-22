@@ -354,8 +354,8 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
 
 <!-- HOME -->
 <div class="page active" id="page-home">
-  <div class="sec-hdr"><div><div class="sec-title">Welcome, <em id="home-name">Player</em></div><div class="sec-sub" id="home-season-sub">2025/26 Season Trial</div></div></div>
-  <div class="season-badge" id="season-badge">📅 2025/26 Season</div>
+  <div class="sec-hdr"><div><div class="sec-title">Welcome, <em id="home-name">Player</em></div><div class="sec-sub" id="home-season-sub">2026/27 Season</div></div></div>
+  <div class="season-badge" id="season-badge">📅 Season</div>
   <div class="fixture-hero" id="home-hero">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.6rem"><div class="fix-label" style="margin:0">⚡ Next Fixture</div><div id="lineup-badge" style="font-size:.72rem;padding:.18rem .6rem;border-radius:6px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);color:var(--amber)">⏳ Lineup not yet confirmed</div></div>
     <div class="fix-teams" id="h-teams">Loading…</div>
@@ -406,7 +406,7 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
       <div class="pick-locked-msg">⏳ Pick window not yet open</div>
     </div>
   </div>
-  <div class="sec-hdr"><div class="sec-title">My <em>History</em></div><div class="sec-sub">2025/26 Season</div></div>
+  <div class="sec-hdr"><div class="sec-title">My <em>History</em></div><div class="sec-sub season-label">2026/27 Season</div></div>
   <div class="tbl-wrap card" style="padding:0">
     <table><thead><tr><th>Date</th><th>Comp</th><th>Opposition</th><th>My Pick</th><th>First Scorer</th><th>Result</th><th>Points</th></tr></thead>
     <tbody id="my-hist"></tbody></table>
@@ -415,7 +415,7 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
 
 <!-- LEADERBOARD -->
 <div class="page" id="page-leaderboard">
-  <div class="sec-hdr"><div><div class="sec-title"><em>Leaderboard</em></div><div class="sec-sub">2025/26 Season</div></div></div>
+  <div class="sec-hdr"><div><div class="sec-title"><em>Leaderboard</em></div><div class="sec-sub season-label">2026/27 Season</div></div></div>
   <div class="card" style="margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
     <span style="font-size:.83rem;color:var(--muted)" id="lb-pot-label">🏆 Rolling pot:</span>
     <span class="pot-badge" id="lb-pot-badge">— pts</span>
@@ -425,7 +425,7 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
 
 <!-- FIXTURES -->
 <div class="page" id="page-fixtures">
-  <div class="sec-hdr"><div><div class="sec-title">Upcoming <em>Fixtures</em></div><div class="sec-sub">2025/26 Season</div></div></div>
+  <div class="sec-hdr"><div><div class="sec-title">Upcoming <em>Fixtures</em></div><div class="sec-sub season-label">2026/27 Season</div></div></div>
   <div class="tab-bar">
     <button class="tab-btn active" onclick="showFixTab('upcoming',this)">Upcoming</button>
     <button class="tab-btn" onclick="showFixTab('all',this)">All Season</button>
@@ -435,7 +435,7 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
 
 <!-- RESULTS -->
 <div class="page" id="page-results">
-  <div class="sec-hdr"><div><div class="sec-title">Past <em>Results</em></div><div class="sec-sub">2025/26 All Competitions</div></div></div>
+  <div class="sec-hdr"><div><div class="sec-title">Past <em>Results</em></div><div class="sec-sub season-label-comps">2026/27 All Competitions</div></div></div>
   <div class="tbl-wrap card" style="padding:0">
     <table><thead><tr><th>Date</th><th>Comp</th><th>Opposition</th><th>Result</th><th>First Scorer</th><th>Winner</th><th>Pot</th></tr></thead>
     <tbody id="results-body"></tbody></table>
@@ -490,10 +490,13 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
       <!-- NEW SEASON -->
       <div id="fix-tab-season" style="display:none">
         <p style="font-size:.78rem;color:var(--muted);margin-bottom:.85rem">
-          Use this at the start of a new season. This will archive completed fixtures and reset points — picks history is preserved in JSONBin.
+          Files the season that has just finished into the archive, then clears everything ready for the new one.
         </p>
-        <div class="form-group"><label>New Season Name (e.g. 2026/27)</label>
-          <input type="text" id="new-season-name" placeholder="2026/27">
+        <div class="form-group"><label>Archive the finished season as…</label>
+          <input type="text" id="new-season-name" placeholder="e.g. 2026/27">
+          <div style="font-size:.72rem;color:var(--muted);margin-top:.3rem">
+            This names the season being <em>filed away</em>, not the new one. Get it right — it's how you'll find the data later.
+          </div>
         </div>
         <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:9px;padding:.85rem;margin-bottom:.85rem;font-size:.8rem;color:var(--muted)">
           ⚠️ This will clear all completed fixtures, reset all points to 0, and reset the pick order. Make sure you've exported the spreadsheet first!
@@ -505,6 +508,23 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
       </div>
     </div>
   </div>
+  <!-- SEASON LABEL -->
+  <div class="card" style="margin-bottom:1rem">
+    <div class="admin-sec-title">📅 Season Label</div>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:.85rem">
+      Worked out automatically from the fixtures, so it should sort itself out each August.
+      Only fill this in if you want to force a different label.
+    </p>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-end">
+      <div style="flex:1;min-width:150px">
+        <label>Override (leave blank for automatic)</label>
+        <input type="text" id="season-label-input" placeholder="e.g. 2026/27">
+      </div>
+      <button class="btn sm" onclick="saveSeasonLabel()">💾 Save</button>
+      <div id="season-label-status" style="font-size:.78rem;color:var(--muted)"></div>
+    </div>
+  </div>
+
   <!-- PICKS OPEN/CLOSE TOGGLE -->
   <div class="card" style="margin-bottom:1rem;border-color:rgba(34,197,94,.35)">
     <div class="admin-sec-title" style="color:var(--green)">🎯 Pick Window</div>
@@ -780,7 +800,7 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
 
 <script>
 // ══════════════════════════════════════════
-//  SEASON DATA — 2025/26
+//  SEASON DATA
 // ══════════════════════════════════════════
 const ADMIN_PW = 'seagulls2026';
 const API_KEY = 'b8dca95b6019fb291d3d448899afdad2';
@@ -796,12 +816,12 @@ const BRIGHTON_TEAM_ID = 51;
 // Completed results from the spreadsheet
 // winner = name of person who picked correctly, potWon = points awarded
 // Fixtures now come entirely from JSONBin — no hardcoded fixtures
-// Brighton 2025/26 season is archived in JSONBin under "Brighton 2025-26"
+// Past seasons are kept in JSONBin under the archive key
 // No hardcoded fixtures — JSONBin is the single source of truth.
 // Hardcoding fixtures here causes deleted games to reappear on every load.
 const SEASON_RESULTS = [];
 
-// Brighton 2025/26 squad
+// Brighton squad
 const SQUAD = [
   'Bart Verbruggen','Jason Steele','Tom McGill','Igor Julio',
   'Pascal Struijk','Lewis Dunk','Eiran Cashin','Joao Pedro Costinha',
@@ -846,6 +866,7 @@ let S = {
   lineupConfirmed: false,
   testMode: false,  // Admin can enable to bypass time windows
   picksOpen: false,  // Admin or lineup confirmation opens picks
+  seasonLabel: '',   // blank = work it out from the fixtures
   requirePin: true,  // Admin can disable PIN requirement
   lineupFixtureId: null,
   lineupFetchedAt: null,
@@ -860,6 +881,7 @@ function loadState() {
       if (p.picks) S.picks = p.picks;
       if (p.requirePin !== undefined) S.requirePin = p.requirePin;
       if (p.picksOpen !== undefined) S.picksOpen = p.picksOpen;
+      if (p.seasonLabel) S.seasonLabel = p.seasonLabel;
       if (p.pins) S.pins = {...S.pins, ...p.pins};
       if (p.baseOrder) S.baseOrder = p.baseOrder;
       if (p.players) S.players = p.players;
@@ -898,6 +920,7 @@ function saveState() {
       subs: S.subs || [],
       requirePin: S.requirePin,
       picksOpen: S.picksOpen,
+      seasonLabel: S.seasonLabel || '',
       fixtures: S.fixtures.filter(f => f.result === 'TBD'),
     }));
   } catch(e) {}
@@ -1461,7 +1484,7 @@ function renderHome() {
     if (teamsEl) teamsEl.textContent = 'Brighton ' + (fix.ha === 'H' ? 'vs' : '@') + ' ' + fix.opp;
     if (metaEl) metaEl.textContent = fmtDate(fix.datetime) + ' · KO ' + fmtTime(fix.datetime) + ' · ' + fix.comp + ' · ' + (fix.ha === 'H' ? 'Home' : 'Away');
     if (potEl) potEl.textContent = '🏆 Pot: ' + S.currentPot + ' pt' + (S.currentPot !== 1 ? 's' : '');
-    if (badgeEl) badgeEl.textContent = '📅 2025/26 Season · Next: ' + fix.opp + ' · ' + fmtShort(fix.datetime);
+    if (badgeEl) badgeEl.textContent = '📅 ' + getSeasonLabel() + ' Season · Next: ' + fix.opp + ' · ' + fmtShort(fix.datetime);
     renderPickSlots(fix, 'h-pick-slots', true);
   } else {
     if (teamsEl) teamsEl.textContent = 'Season complete!';
@@ -1598,6 +1621,14 @@ function renderResults() {
 //  ADMIN
 // ══════════════════════════════════════════
 function renderAdmin() {
+  // Season label field + status
+  const slEl = document.getElementById('season-label-input');
+  if (slEl) slEl.value = S.seasonLabel || '';
+  const slStatus = document.getElementById('season-label-status');
+  if (slStatus) slStatus.textContent = S.seasonLabel
+    ? ('Forced to ' + S.seasonLabel)
+    : ('Automatic — showing ' + getSeasonLabel());
+
   // Sync picks open/close button state
   updatePicksOpenButton();
 
@@ -2894,6 +2925,10 @@ function applyRemoteData(data) {
   if (data.picksOpen !== undefined) {
     S.picksOpen = data.picksOpen;
   }
+  // Season label override (blank = derived from fixtures)
+  if (data.seasonLabel !== undefined) {
+    S.seasonLabel = data.seasonLabel;
+  }
   // JSONBin is the single source of truth for fixtures — REPLACE, don't merge.
   // Merging meant a fixture deleted in JSONBin would reappear from local/hardcoded data.
   if (data.fixtures && data.fixtures.length > 0) {
@@ -3174,50 +3209,77 @@ async function deleteFixture() {
 }
 
 async function startNewSeason() {
-  const name = document.getElementById('new-season-name').value.trim();
-  if (!name) { toast('Please enter a season name e.g. 2026/27', 'err'); return; }
-  if (!confirm('Start new season ' + name + '? This will clear all results and reset points. Make sure you have exported the data first!')) return;
-
-  // Archive to JSONBin under a season key, then reset
-  try {
-    const data = await dbGet();
-    // Archive current season
-    if (!data.archive) data.archive = {};
-    data.archive[name.replace('/', '-')] = {
-      results: data.results,
-      points: data.points,
-      correctPicks: data.correctPicks,
-      picks: data.picks,
-    };
-    // Reset for new season
-    data.results = {};
-    data.points = {};
-    data.correctPicks = {};
-    data.picks = {};
-    data.fixtures = [];
-    data.baseOrder = [...S.players]; // reset pick order
-    await dbWrite(data);
-    toast('✅ New season started! Add fixtures to begin.', 'ok');
-  } catch(e) {
-    toast('❌ Failed: ' + e.message, 'err');
+  const nameEl = document.getElementById('new-season-name');
+  const name = nameEl ? nameEl.value.trim() : '';
+  const suggested = getSeasonLabel();
+  if (!name) {
+    toast('Name the season you are filing away, e.g. ' + suggested, 'err');
+    if (nameEl) { nameEl.value = suggested; nameEl.focus(); }
     return;
   }
 
-  // Reset local state
-  S.fixtures = S.fixtures.filter(f => f.result === 'TBD'); // keep upcoming
-  S.points = {};
-  S.correctPicks = {};
-  S.picks = {};
-  S.currentPot = 1;
-  S.baseOrder = [...S.players];
+  const key = name.replace(/\//g, '-');
+
+  let data;
+  try {
+    data = await dbGet();
+  } catch(e) {
+    toast('Could not reach the database — nothing changed', 'err');
+    return;
+  }
+
+  // Never overwrite an existing archive — this is how a season gets lost
+  if (data.archive && data.archive[key]) {
+    toast('An archive called "' + key + '" already exists. Use a different name.', 'err');
+    return;
+  }
+
+  const resultCount = Object.keys(data.results || {}).length;
+  if (!confirm(
+    'Archive ' + resultCount + ' result(s) as "' + name + '", then clear results, points and fixtures for a fresh season?\n\n' +
+    'The archive is kept, but the live data is wiped. Export first if you want a local copy.'
+  )) return;
+
+  try {
+    if (!data.archive) data.archive = {};
+    data.archive[key] = {
+      results:      data.results      || {},
+      points:       data.points       || {},
+      correctPicks: data.correctPicks || {},
+      picks:        data.picks        || {},
+      fixtures:     data.fixtures     || [],
+      archivedAt:   new Date().toISOString()
+    };
+
+    data.results = {}; data.points = {}; data.correctPicks = {}; data.picks = {};
+    data.fixtures = []; data.starters = []; data.subs = [];
+    data.picksOpen = false;
+    data.baseOrder = [];
+    data.seasonLabel = '';   // derive again from whatever fixtures get loaded next
+    (data.players || []).forEach(pl => { data.points[pl] = 0; data.correctPicks[pl] = 0; });
+
+    await dbWrite(data);
+  } catch(e) {
+    toast('Failed: ' + e.message, 'err');
+    return;
+  }
+
+  // Mirror the same reset locally so the screen matches the database
+  S.fixtures = []; S.results = {}; S.picks = {};
+  S.points = {}; S.correctPicks = {};
+  S.players.forEach(pl => { S.points[pl] = 0; S.correctPicks[pl] = 0; });
+  S.starters = []; S.subs = [];
+  S.currentPot = 1; S.picksOpen = false; S.baseOrder = []; S.seasonLabel = '';
   saveState();
+  if (nameEl) nameEl.value = '';
   renderAll(); renderAdmin();
+  toast('✅ Filed as "' + name + '" — add the new fixtures to begin', 'ok');
 }
 
 function exportSeasonData() {
   // Create a JSON download of current season data
   const exportData = {
-    season: '2025/26',
+    season: getSeasonLabel(),
     exportedAt: new Date().toISOString(),
     results: {},
     points: S.points,
@@ -3233,7 +3295,7 @@ function exportSeasonData() {
   const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'seagulls-season-2025-26.json';
+  a.download = 'first-goalscorer-' + getSeasonLabel().replace('/', '-') + '.json';
   a.click();
   toast('✅ Season data exported!', 'ok');
 }
@@ -3447,7 +3509,59 @@ function clearBulkPicks() {
 }
 
 
-function renderAll() { renderHome(); }
+// ── SEASON LABEL ────────────────────────────────────────────
+// Worked out automatically so it never needs hand-editing each August.
+// A season runs Aug–May, so anything from August belongs to year/year+1.
+function seasonFromDate(d) {
+  const y = d.getFullYear();
+  const startYear = (d.getMonth() >= 6) ? y : y - 1;   // month 6 = July
+  return startYear + '/' + String((startYear + 1) % 100).padStart(2, '0');
+}
+
+function getSeasonLabel() {
+  // 1. Explicit override wins (set in Admin, stored in JSONBin)
+  if (S.seasonLabel) return S.seasonLabel;
+  // 2. Otherwise derive from the earliest fixture we know about
+  if (S.fixtures && S.fixtures.length) {
+    const earliest = [...S.fixtures].sort((a,b) => a.datetime.localeCompare(b.datetime))[0];
+    if (earliest && earliest.datetime) return seasonFromDate(new Date(earliest.datetime));
+  }
+  // 3. Fall back to today
+  return seasonFromDate(new Date());
+}
+
+function applySeasonLabels() {
+  const s = getSeasonLabel();
+  const homeSub = document.getElementById('home-season-sub');
+  if (homeSub) homeSub.textContent = s + ' Season';
+  document.querySelectorAll('.season-label').forEach(el => { el.textContent = s + ' Season'; });
+  document.querySelectorAll('.season-label-comps').forEach(el => { el.textContent = s + ' All Competitions'; });
+}
+
+
+async function saveSeasonLabel() {
+  const el = document.getElementById('season-label-input');
+  const val = el ? el.value.trim() : '';
+  S.seasonLabel = val;
+  saveState();
+  applySeasonLabels(); renderAll();
+  const status = document.getElementById('season-label-status');
+  try {
+    const data = await dbGet();
+    data.seasonLabel = val;
+    await dbWrite(data);
+    if (status) {
+      status.textContent = val ? ('Forced to ' + val) : ('Automatic — showing ' + getSeasonLabel());
+      status.style.color = 'var(--green)';
+    }
+    toast('✅ Season label saved', 'ok');
+  } catch(e) {
+    if (status) { status.textContent = 'Saved locally but not synced'; status.style.color = 'var(--amber)'; }
+  }
+}
+
+
+function renderAll() { applySeasonLabels(); renderHome(); }
 
 function toast(msg, type='ok') {
   const c = document.getElementById('toasts');
