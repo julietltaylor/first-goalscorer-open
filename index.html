@@ -450,7 +450,7 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
       <div class="admin-sec-title">✅ Confirm Match Result</div>
       <div class="form-group"><label>Fixture</label><select id="a-fix-sel" onchange="loadAdminPicks()"><option value="">Select…</option></select></div>
       <div class="form-group"><label>Result (e.g. W 2-1)</label><input type="text" id="a-result" placeholder="W 2-1"></div>
-      <div class="form-group"><label>First Goalscorer</label><select id="a-scorer"><option value="">Select…</option><option value="no_goal">No goalscorer</option></select></div>
+      <div class="form-group"><label>First Goalscorer</label><select id="a-scorer"><option value="">Select…</option><option value="no_goal">No Brighton goalscorer</option></select></div>
       <div class="form-group"><label>Goal Time</label><input type="text" id="a-time" placeholder="e.g. 23'">
         <div style="font-size:.72rem;color:var(--muted);margin-top:.3rem">⚠️ Any picks submitted after this goal time will be disqualified</div>
       </div>
@@ -808,6 +808,13 @@ const JSONBIN_KEY = '$2a$10$I9sVKAmPz4UxW0Sj3O95CeShb7CVVcIl5olCVZ.CArxvpOdO79yp
 const JSONBIN_BIN = '6a2e524ef5f4af5e29eeedfb';
 const JSONBIN_URL = 'https://api.jsonbin.io/v3/b/' + JSONBIN_BIN;
 let _pendingPick = '';  // tracks in-progress pick selection
+
+// Always selectable. This means Brighton's first goal came via an OPPOSITION
+// player putting it into their own net. A Brighton player scoring an own goal
+// is a goal for the opposition, not a Brighton goalscorer, so it never applies here.
+const OWN_GOAL = 'Own Goal';
+const OWN_GOAL_LABEL = 'Own Goal (opposition player)';
+const OWN_GOAL_OPT = '<optgroup label="⚽ Other"><option value="' + OWN_GOAL + '">' + OWN_GOAL_LABEL + '</option></optgroup>';
 const API_BASE = 'https://v3.football.api-sports.io';
 const BRIGHTON_TEAM_ID = 51;
 // API key added as query param — allorigins proxy can't forward custom headers
@@ -1323,6 +1330,7 @@ function renderPickSlots(fix, containerId, showPickArea) {
     } else {
       optionsHtml += fallbackAvail.map(p=>`<option value="${p}">${p}</option>`).join('');
     }
+    optionsHtml += OWN_GOAL_OPT;
 
     area.className = 'your-pick-area can-pick';
     area.innerHTML = `
@@ -1672,13 +1680,14 @@ function renderAdmin() {
   const sc = document.getElementById('a-scorer');
   const adminStarters = S.starters || [];
   const adminSubs = S.subs || [];
-  let adminOpts = '<option value="">Select…</option><option value="no_goal">No goalscorer</option>';
+  let adminOpts = '<option value="">Select…</option><option value="no_goal">No Brighton goalscorer</option>';
   if (adminStarters.length > 0 || adminSubs.length > 0) {
     if (adminStarters.length) adminOpts += `<optgroup label="⚽ Starting XI">${adminStarters.map(p=>`<option value="${p}">${p}</option>`).join('')}</optgroup>`;
     if (adminSubs.length) adminOpts += `<optgroup label="🔄 Substitutes">${adminSubs.map(p=>`<option value="${p}">${p}</option>`).join('')}</optgroup>`;
   } else {
     adminOpts += S.squad.sort().map(p=>`<option value="${p}">${p}</option>`).join('');
   }
+  adminOpts += OWN_GOAL_OPT;
   sc.innerHTML = adminOpts;
 
   // Fixture select — only TBD
@@ -3073,6 +3082,7 @@ function updateAdminPickDropdown() {
   } else {
     opts += fallback.map(p => `<option value="${p}">${p}</option>`).join('');
   }
+  opts += OWN_GOAL_OPT;
   pickSel.innerHTML = opts;
 }
 
@@ -3428,7 +3438,8 @@ function loadBulkPicks() {
   // Build grid — one row per player with a dropdown
   // Use full season squad for bulk entry — combines hardcoded SQUAD with any matchday additions
   const fullSeasonSquad = [...new Set([...SQUAD, ...S.squad])].sort();
-  const squadOpts = fullSeasonSquad.map(function(p) { return '<option value="' + p + '">' + p + '</option>'; }).join('');
+  const squadOpts = fullSeasonSquad.map(function(p) { return '<option value="' + p + '">' + p + '</option>'; }).join('')
+    + '<option value="' + OWN_GOAL + '">' + OWN_GOAL_LABEL + '</option>';
 
   grid.innerHTML = '<div style="display:flex;flex-direction:column;gap:.4rem">' +
     S.players.map(function(player) {
