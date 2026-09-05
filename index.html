@@ -620,13 +620,13 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
         <label>Starters (JSON array)</label>
         <textarea id="json-starters" rows="3"
           style="width:100%;background:var(--bg2);border:1px solid var(--brd);border-radius:8px;padding:.65rem;color:var(--txt);font-family:monospace;font-size:.78rem;resize:vertical"
-          placeholder='["Verbruggen","Dunk","Van Hecke","Minteh","Hinshelwood","Welbeck","Milner","Kadioglu","Gomez","Wieffer","Gross"]'></textarea>
+          placeholder='["Verbruggen","Dunk","Vuskovic","Boscagli","Kadioglu","Wieffer","Gross","Gomez","Ayari","De Cuyper","Kostoulas"]'></textarea>
       </div>
       <div class="form-group">
         <label>Substitutes (JSON array)</label>
         <textarea id="json-subs" rows="3"
           style="width:100%;background:var(--bg2);border:1px solid var(--brd);border-radius:8px;padding:.65rem;color:var(--txt);font-family:monospace;font-size:.78rem;resize:vertical"
-          placeholder='["Steele","March","Rutter","Boscagli","Ayari","De Cuyper","O\'Riley","Veltman","Howell"]'></textarea>
+          placeholder='["Steele","Struijk","Hadjam","Osman","Costinha","O\'Riley","Yalcouye","Yohanna","Oriola"]'></textarea>
       </div>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
         <button class="btn gold" onclick="confirmJsonLineup()">✅ Confirm Squad</button>
@@ -830,14 +830,14 @@ const SEASON_RESULTS = [];
 
 // Brighton squad
 const SQUAD = [
-  'Bart Verbruggen','Jason Steele','Tom McGill','Igor Julio',
-  'Pascal Struijk','Lewis Dunk','Eiran Cashin','Joao Pedro Costinha',
-  'Oliver Boscagli','Ferdi Kadioglu','Maxim De Cuyper','Michael Svoboda',
-  'Luka Vuskovic','Kaoru Mitoma','Jack Hinshelwood','Pascal Gross',
-  'Carlos Baleba','Diego Gomez','Yasin Ayari','Mats Wieffer',
-  'Matt O\'Riley','Malick Yalcouye','Stefanos Tzimas','Georginio Rutter',
-  'Yankuba Minteh','Promise David','Ibrahim Osman','Charalampos Kostoulas',
-  'Amario Cozier-Duberry','Evan Ferguson','Zadok Yohanna'
+  'Bart Verbruggen','Jason Steele','Tom McGill','Jaouen Hadjam',
+  'Pascal Struijk','Lewis Dunk','Joao Pedro Costinha','Oliver Boscagli',
+  'Ferdi Kadioglu','Maxim De Cuyper','Michael Svoboda','Luka Vuskovic',
+  'Kaoru Mitoma','Jack Hinshelwood','Pascal Gross','Chema Andres',
+  'Diego Gomez','Yasin Ayari','Mats Wieffer','Matt O\'Riley',
+  'Malick Yalcouye','Stefanos Tzimas','Georginio Rutter','Yankuba Minteh',
+  'Promise David','Ibrahim Osman','Charalampos Kostoulas','Evan Ferguson',
+  'Zadok Yohanna','Femi Azeez'
 ];
 // Points now loaded from JSONBin — not hardcoded
 const SEASON_POINTS = {};
@@ -2470,7 +2470,7 @@ function renderSquadSelector() {
   const fullSquad = [
     'Bart Verbruggen','Jason Steele','Lewis Dunk','Jan Paul van Hecke','Ferdi Kadioglu',
     'Mats Wieffer','Maxim De Cuyper','Joel Veltman','Olivier Boscagli','Carlos Baleba',
-    'Pascal Gross','James Milner','Jack Hinshelwood','Yasin Ayari','Diego Gómez',
+    'Pascal Gross','Chema Andres','Jack Hinshelwood','Yasin Ayari','Diego Gomez',
     'Kaoru Mitoma','Yankuba Minteh','Georginio Rutter','Danny Welbeck','Charalampos Kostoulas',
     'Stefanos Tzimas','Brajan Gruda','Matt O\'Riley','Solly March'
   ];
@@ -2628,7 +2628,7 @@ function parseLineupText(rawText) {
   // Full Brighton squad — used to fuzzy-match OCR output and filter non-players
   const FULL_SQUAD = [
     'Verbruggen','Steele','Dunk','Van Hecke','Veltman','Kadioglu','De Cuyper',
-    'Boscagli','Wieffer','Baleba','Gross','Milner','Hinshelwood','Ayari','Gomez',
+    'Boscagli','Wieffer','Vuskovic','Gross','Andres','Hinshelwood','Ayari','Gomez',
     'Gómez','Mitoma','Minteh','Rutter','Welbeck','Kostoulas','Tzimas','Gruda',
     'O\'Riley','March','Igor','Julio','Steele','Fabian','Enciso'
   ];
