@@ -1820,7 +1820,7 @@ function loadAdminPicks() {
   ).join('');
 }
 
-function confirmResult() {
+async function confirmResult() {
   const fixId = parseInt(document.getElementById('a-fix-sel').value);
   const result = document.getElementById('a-result').value.trim();
   const scorer = document.getElementById('a-scorer').value;
@@ -1828,31 +1828,75 @@ function confirmResult() {
   if (!fixId || !result || !scorer) { toast('Please fill in all fields', 'err'); return; }
   const fix = S.fixtures.find(f => f.id === fixId);
   if (!fix) return;
-  fix.result = result;
-  fix.scorer = scorer === 'no_goal' ? null : scorer;
+
+  // Always work from FRESH data. Deciding winners from local state is unsafe:
+  // other players pick on their own devices, so this device may not have them yet.
+  let data;
+  try {
+    data = await dbGet();
+  } catch(e) {
+    toast('Cannot reach the database — result NOT saved. Try again.', 'err');
+    return;
+  }
+
+  // Pull the latest picks into local state so the screen matches too
+  if (data.picks) {
+    Object.entries(data.picks).forEach(([fid, fpicks]) => {
+      if (!S.picks[fid]) S.picks[fid] = {};
+      Object.assign(S.picks[fid], fpicks);
+    });
+    saveState();
+  }
+
+  const fp = (data.picks && (data.picks[String(fixId)] || data.picks[fixId])) || {};
+  const pickCount = Object.keys(fp).filter(k => !k.endsWith('_time')).length;
+
+  const chosenScorer = scorer === 'no_goal' ? null : scorer;
+
+  // Guard: no picks at all is nearly always a sync problem, not a real 0-pick game
+  if (chosenScorer && pickCount === 0) {
+    if (!confirm('No picks found for this fixture.\n\nThat usually means the picks have not synced. Confirming now would roll the pot over and award nobody.\n\nConfirm anyway?')) return;
+  }
+
+  fix.result   = result;
+  fix.scorer   = chosenScorer;
   fix.goalTime = goalTime || null;
 
-  // Look up picks — try both integer and string keys
-  const fp = S.picks[fixId] || S.picks[String(fixId)] || {};
-
-  // Find ALL players who picked the scorer (multiple winners allowed in this game)
+  // Every player who picked the scorer wins
   let winners = [];
-  if (fix.scorer) {
+  if (chosenScorer) {
     Object.entries(fp).forEach(([k, v]) => {
-      if (!k.endsWith('_time') && v === fix.scorer) winners.push(k);
+      if (!k.endsWith('_time') && v === chosenScorer) winners.push(k);
     });
   }
 
-  // Disqualify any winners who picked after the first goal time
-  if (fix.scorer && winners.length && goalTime && goalTime.trim()) {
+  // Flag a likely name mismatch rather than silently rolling the pot over
+  if (chosenScorer && winners.length === 0 && pickCount > 0) {
+    const norm = s => String(s).toLowerCase().replace(/[^a-z]/g, '');
+    const target = norm(chosenScorer);
+    const near = Object.entries(fp)
+      .filter(([k, v]) => !k.endsWith('_time'))
+      .filter(([k, v]) => {
+        const n = norm(v);
+        return n && (n === target || n.endsWith(target) || target.endsWith(n));
+      })
+      .map(([k, v]) => k + ' picked "' + v + '"');
+    if (near.length) {
+      if (!confirm('Nobody exactly matched "' + chosenScorer + '", but these look like the same player:\n\n' +
+                   near.join('\n') + '\n\nOK = treat them as winners.  Cancel = stop and fix the spelling.')) return;
+      near.forEach(entry => winners.push(entry.split(' picked ')[0]));
+    }
+  }
+
+  // Picks made after the first goal do not count
+  if (chosenScorer && winners.length && goalTime) {
     const goalMins = parseGoalTime(goalTime);
     if (goalMins !== null) {
-      const ko = new Date(fix.datetime);
-      const goalMs = ko.getTime() + goalMins * 60 * 1000;
+      const goalMs = new Date(fix.datetime).getTime() + goalMins * 60 * 1000;
       winners = winners.filter(w => {
-        const pickTime = fp[w + '_time'];
-        if (pickTime && new Date(pickTime) > new Date(goalMs)) {
-          console.log(w + ' pick disqualified — picked after goal at ' + goalTime);
+        const t = fp[w + '_time'];
+        if (t && new Date(t) > new Date(goalMs)) {
+          console.log(w + ' disqualified — picked after the goal');
           return false;
         }
         return true;
@@ -1860,39 +1904,47 @@ function confirmResult() {
     }
   }
 
-  // Store winners as a comma-separated string (or empty)
-  fix.winner = winners.length ? winners.join(', ') : '';
-  fix.winners = winners; // array form for this game
+  fix.winner  = winners.length ? winners.join(', ') : '';
+  fix.winners = winners;
 
-  // Calc pot
+  // Pot from the fresh record, counting rollovers since the last win
+  const freshResults = data.results || {};
   const sorted = [...S.fixtures].sort((a,b) => a.datetime.localeCompare(b.datetime));
   let pot = 1;
   for (const f of sorted) {
-    if (f.id === fixId) { fix.potWon = winners.length ? pot : 0; break; }
-    if (f.result === 'TBD') break;
-    // Use f.winner (persisted string) — f.winners array only exists in-memory
-    const hadWinner = (f.winner && f.winner.length > 0) || (f.winners && f.winners.length);
+    if (f.id === fixId) break;
+    const r = freshResults[String(f.id)];
+    if (!r && f.result === 'TBD') break;
+    const hadWinner = r ? (r.winner && r.winner.length > 0) : (f.winner && f.winner.length > 0);
     if (hadWinner) pot = 1; else pot++;
   }
-  if (!winners.length) fix.potWon = 0;
+  fix.potWon = winners.length ? pot : 0;
 
-  // Update live points — EVERY winner gets the FULL pot
-  if (winners.length) {
-    winners.forEach(w => {
-      S.points[w] = (S.points[w] || 0) + fix.potWon;
-      S.correctPicks[w] = (S.correctPicks[w] || 0) + 1;
-    });
-    S.currentPot = 1;
-  } else {
-    S.currentPot++;
-  }
-  S.picksOpen = false; // close picks for next game
+  // Points come off the fresh totals, not this device's copy
+  const basePoints = data.points || {};
+  const basePicks  = data.correctPicks || {};
+  S.players.forEach(pl => {
+    S.points[pl]       = basePoints[pl] || 0;
+    S.correctPicks[pl] = basePicks[pl]  || 0;
+  });
+  winners.forEach(w => {
+    S.points[w]       = (S.points[w] || 0) + fix.potWon;
+    S.correctPicks[w] = (S.correctPicks[w] || 0) + 1;
+  });
+  S.currentPot = winners.length ? 1 : pot + 1;
+  S.picksOpen  = false;
   saveState();
-  saveResult_toSheets(fix); // sync result to JSONBin
+
+  try {
+    await saveResult_toSheets(fix);
+  } catch(e) {
+    toast('Saved locally but not synced — check your connection', 'err');
+  }
+
   if (winners.length) {
-    toast('🏆 ' + winners.length + ' winner' + (winners.length > 1 ? 's' : '') + ' — ' + winners.join(', ') + ' each win ' + fix.potWon + ' pts!', 'ok');
+    toast('🏆 ' + winners.join(', ') + ' win ' + fix.potWon + ' pt' + (fix.potWon !== 1 ? 's' : '') + ' each!', 'ok');
   } else {
-    toast('✅ Confirmed — pot rolls over', 'ok');
+    toast('✅ Confirmed — pot rolls over to ' + (pot + 1), 'ok');
   }
   renderAll(); renderAdmin();
 }
