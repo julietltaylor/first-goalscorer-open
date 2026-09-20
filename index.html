@@ -679,6 +679,21 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
     </div>
   </div>
 
+  <!-- RECALCULATE LEADERBOARD -->
+  <div class="card" style="margin-bottom:1rem;border-color:rgba(96,165,250,.3)">
+    <div class="admin-sec-title" style="color:#60a5fa">🧮 Recalculate Leaderboard</div>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:.85rem">
+      Rebuilds every completed game from the picks and scorers currently stored, then re-runs the pot
+      from the start of the season. Use this after entering picks late, or after correcting a scorer.
+      It shows you what will change before anything is saved.
+    </p>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+      <button class="btn sm" style="background:#60a5fa;color:#08203f" onclick="recalcLeaderboard()">🧮 Check &amp; Rebuild</button>
+      <div id="recalc-status" style="font-size:.78rem;color:var(--muted)"></div>
+    </div>
+    <div id="recalc-preview" style="margin-top:.75rem"></div>
+  </div>
+
   <!-- JSONBIN LIVE SYNC -->
   <div class="card" style="margin-bottom:1rem;border-color:rgba(34,197,94,.25)">
     <div class="admin-sec-title" style="color:var(--green)">☁️ Live Sync</div>
@@ -3621,6 +3636,120 @@ async function saveSeasonLabel() {
   } catch(e) {
     if (status) { status.textContent = 'Saved locally but not synced'; status.style.color = 'var(--amber)'; }
   }
+}
+
+
+// ── RECALCULATE LEADERBOARD ─────────────────────────────────
+// Re-derives every completed fixture from the picks and scorer held in JSONBin.
+// Order of entry stops mattering: picks added after a result was confirmed get
+// picked up here. Cannot recover a pick that was never saved in the first place.
+async function recalcLeaderboard() {
+  const statusEl  = document.getElementById('recalc-status');
+  const previewEl = document.getElementById('recalc-preview');
+  if (statusEl) { statusEl.textContent = 'Reading…'; statusEl.style.color = 'var(--muted)'; }
+  if (previewEl) previewEl.innerHTML = '';
+
+  let data;
+  try {
+    data = await dbGet();
+  } catch(e) {
+    if (statusEl) { statusEl.textContent = 'Could not reach the database'; statusEl.style.color = 'var(--red)'; }
+    return;
+  }
+
+  const done = (data.fixtures || [])
+    .filter(f => f.result && f.result !== 'TBD')
+    .sort((a,b) => a.datetime.localeCompare(b.datetime));
+
+  if (!done.length) {
+    if (statusEl) statusEl.textContent = 'No completed fixtures yet';
+    return;
+  }
+
+  const players = data.players || S.players || [];
+  const pts = {}, cps = {};
+  players.forEach(p => { pts[p] = 0; cps[p] = 0; });
+
+  let pot = 1;
+  const rows = [];
+  done.forEach(f => {
+    const id     = String(f.id);
+    const res    = (data.results || {})[id] || {};
+    const fp     = (data.picks   || {})[id] || {};
+    const scorer = res.scorer;
+    const winners = scorer
+      ? Object.keys(fp).filter(k => !k.endsWith('_time') && fp[k] === scorer)
+      : [];
+    const won = winners.length ? pot : 0;
+
+    const wasWinner = res.winner || '';
+    const nowWinner = winners.join(', ');
+    rows.push({
+      opp: f.opp, scorer: scorer, winners: nowWinner, won: won,
+      changed: (wasWinner !== nowWinner) || ((res.potWon || 0) !== won)
+    });
+
+    winners.forEach(w => { pts[w] = (pts[w] || 0) + won; cps[w] = (cps[w] || 0) + 1; });
+    res.winner = nowWinner; res.potWon = won;
+    if (!data.results) data.results = {};
+    data.results[id] = res;
+    f.winner = nowWinner; f.potWon = won;
+    pot = winners.length ? 1 : pot + 1;
+  });
+
+  // What actually differs from the stored totals
+  const oldPts = data.points || {};
+  const diffs = players
+    .filter(p => (oldPts[p] || 0) !== pts[p])
+    .map(p => p + ': ' + (oldPts[p] || 0) + ' → ' + pts[p]);
+
+  const changedRows = rows.filter(r => r.changed);
+
+  let html = '<div style="background:var(--bg2);border:1px solid var(--brd);border-radius:9px;padding:.75rem;font-size:.8rem">';
+  html += '<div style="font-weight:600;margin-bottom:.5rem">' + done.length + ' completed game' + (done.length !== 1 ? 's' : '') + ' checked</div>';
+  html += rows.map(r =>
+    '<div style="padding:.2rem 0;color:' + (r.changed ? 'var(--gold)' : 'var(--muted)') + '">' +
+    (r.changed ? '● ' : '○ ') + r.opp + ' — ' + (r.scorer || 'no scorer') + ' — ' +
+    (r.winners ? r.winners + ' (' + r.won + 'pt' + (r.won !== 1 ? 's' : '') + ')' : 'rolls over') +
+    '</div>').join('');
+  html += '<div style="margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--brd)">Pot for next game: <strong>' + pot + '</strong></div>';
+  if (diffs.length) {
+    html += '<div style="margin-top:.5rem;color:var(--gold)"><strong>Points changing:</strong><br>' + diffs.join('<br>') + '</div>';
+  } else {
+    html += '<div style="margin-top:.5rem;color:var(--green)">Everything already correct — nothing to change.</div>';
+  }
+  html += '</div>';
+  if (previewEl) previewEl.innerHTML = html;
+
+  if (!diffs.length && !changedRows.length) {
+    if (statusEl) { statusEl.textContent = 'No changes needed'; statusEl.style.color = 'var(--green)'; }
+    return;
+  }
+
+  const summary = (changedRows.length ? changedRows.map(r =>
+      r.opp + ': ' + (r.winners || 'rolls over')).join('\n') + '\n\n' : '') +
+    (diffs.length ? 'Points:\n' + diffs.join('\n') : 'No points change');
+
+  if (!confirm('Apply these changes?\n\n' + summary)) {
+    if (statusEl) { statusEl.textContent = 'Cancelled — nothing saved'; statusEl.style.color = 'var(--muted)'; }
+    return;
+  }
+
+  data.points = pts;
+  data.correctPicks = cps;
+  try {
+    await dbWrite(data);
+  } catch(e) {
+    if (statusEl) { statusEl.textContent = 'Save failed — nothing changed'; statusEl.style.color = 'var(--red)'; }
+    return;
+  }
+
+  applyRemoteData(data);
+  S.currentPot = pot;
+  saveState();
+  renderAll(); renderAdmin();
+  if (statusEl) { statusEl.textContent = '✅ Rebuilt'; statusEl.style.color = 'var(--green)'; }
+  toast('✅ Leaderboard rebuilt', 'ok');
 }
 
 
