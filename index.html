@@ -448,8 +448,21 @@ hr{border:none;border-top:1px solid var(--brd);margin:1rem 0;}
   <div class="admin-grid">
     <div class="card">
       <div class="admin-sec-title">✅ Confirm Match Result</div>
-      <div class="form-group"><label>Fixture</label><select id="a-fix-sel" onchange="loadAdminPicks()"><option value="">Select…</option></select></div>
-      <div class="form-group"><label>Result (e.g. W 2-1)</label><input type="text" id="a-result" placeholder="W 2-1"></div>
+      <div class="form-group"><label>Fixture</label><select id="a-fix-sel" onchange="loadAdminPicks();updateOppScoreLabel()"><option value="">Select…</option></select></div>
+      <div class="form-group"><label>Score</label>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <div style="flex:1">
+            <div style="font-size:.7rem;color:var(--muted);margin-bottom:.2rem">Brighton</div>
+            <input type="number" id="a-gf" min="0" max="99" placeholder="0" oninput="updateResultPreview()">
+          </div>
+          <div style="padding-top:1.1rem;color:var(--muted)">–</div>
+          <div style="flex:1">
+            <div style="font-size:.7rem;color:var(--muted);margin-bottom:.2rem" id="a-opp-label">Opponent</div>
+            <input type="number" id="a-ga" min="0" max="99" placeholder="0" oninput="updateResultPreview()">
+          </div>
+        </div>
+        <div id="a-result-preview" style="font-size:.8rem;color:var(--muted);margin-top:.4rem">Enter the score — W/D/L is worked out for you</div>
+      </div>
       <div class="form-group"><label>First Goalscorer</label><select id="a-scorer"><option value="">Select…</option><option value="no_goal">No Brighton goalscorer</option></select></div>
       <div class="form-group"><label>Goal Time</label><input type="text" id="a-time" placeholder="e.g. 23'">
         <div style="font-size:.72rem;color:var(--muted);margin-top:.3rem">⚠️ Any picks submitted after this goal time will be disqualified</div>
@@ -1705,6 +1718,9 @@ function renderAdmin() {
   adminOpts += OWN_GOAL_OPT;
   sc.innerHTML = adminOpts;
 
+  // Label the away side with the actual opponent
+  updateOppScoreLabel();
+
   // Fixture select — only TBD
   const fixSel = document.getElementById('a-fix-sel');
   const upcoming = S.fixtures.filter(f => f.result === 'TBD').sort((a,b) => a.datetime.localeCompare(b.datetime));
@@ -1835,12 +1851,60 @@ function loadAdminPicks() {
   ).join('');
 }
 
+// Result string is derived from the score so it can never be mistyped.
+// Always written from Brighton's point of view, home or away.
+function buildResultString(gf, ga) {
+  if (gf === '' || ga === '' || gf === null || ga === null) return '';
+  const f = parseInt(gf), a = parseInt(ga);
+  if (isNaN(f) || isNaN(a)) return '';
+  return (f > a ? 'W' : f < a ? 'L' : 'D') + ' ' + f + '-' + a;
+}
+
+function updateOppScoreLabel() {
+  const sel = document.getElementById('a-fix-sel');
+  const lbl = document.getElementById('a-opp-label');
+  if (!sel || !lbl) return;
+  const fx = S.fixtures.find(f => String(f.id) === String(sel.value));
+  lbl.textContent = fx ? fx.opp : 'Opponent';
+}
+
+
+function updateResultPreview() {
+  const gf = document.getElementById('a-gf');
+  const ga = document.getElementById('a-ga');
+  const out = document.getElementById('a-result-preview');
+  if (!gf || !ga || !out) return;
+  const s = buildResultString(gf.value, ga.value);
+  if (!s) {
+    out.textContent = 'Enter the score — W/D/L is worked out for you';
+    out.style.color = 'var(--muted)';
+    return;
+  }
+  const letter = s.charAt(0);
+  out.textContent = 'Will be saved as: ' + s;
+  out.style.color = letter === 'W' ? 'var(--green)' : letter === 'D' ? 'var(--amber)' : 'var(--red)';
+}
+
+
 async function confirmResult() {
   const fixId = parseInt(document.getElementById('a-fix-sel').value);
-  const result = document.getElementById('a-result').value.trim();
+  const gfEl = document.getElementById('a-gf');
+  const gaEl = document.getElementById('a-ga');
+  const result = buildResultString(gfEl ? gfEl.value : '', gaEl ? gaEl.value : '');
   const scorer = document.getElementById('a-scorer').value;
   const goalTime = document.getElementById('a-time').value.trim();
-  if (!fixId || !result || !scorer) { toast('Please fill in all fields', 'err'); return; }
+  if (!fixId) { toast('Please select a fixture', 'err'); return; }
+  if (!result) { toast('Enter both scores', 'err'); return; }
+  if (!scorer) { toast('Select the first goalscorer', 'err'); return; }
+
+  // A scoreless Brighton cannot have a goalscorer, and vice versa
+  const brightonGoals = parseInt(gfEl.value);
+  if (brightonGoals === 0 && scorer !== 'no_goal') {
+    toast('Brighton scored 0 — set the goalscorer to "No Brighton goalscorer"', 'err'); return;
+  }
+  if (brightonGoals > 0 && scorer === 'no_goal') {
+    toast('Brighton scored ' + brightonGoals + ' — pick who scored first', 'err'); return;
+  }
   const fix = S.fixtures.find(f => f.id === fixId);
   if (!fix) return;
 
