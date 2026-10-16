@@ -1473,8 +1473,35 @@ function submitPick(fixId, selId) {
 // ══════════════════════════════════════════
 //  LEADERBOARD
 // ══════════════════════════════════════════
+// Every name we know about, from any source. Used wherever we score or display
+// players, so somebody can never be skipped just because this device's copy of
+// the player list is out of date.
+function rosterUnion(data, extra) {
+  const seen = new Set();
+  const out = [];
+  const add = n => {
+    if (typeof n !== 'string') return;
+    const name = n.trim();
+    if (!name || seen.has(name)) return;
+    seen.add(name); out.push(name);
+  };
+  (S.players || []).forEach(add);
+  if (data) {
+    (data.players || []).forEach(add);
+    Object.keys(data.points || {}).forEach(add);
+    Object.keys(data.correctPicks || {}).forEach(add);
+  }
+  Object.keys(S.points || {}).forEach(add);
+  Object.keys(S.correctPicks || {}).forEach(add);
+  (extra || []).forEach(add);
+  return out;
+}
+
 function lbSorted() {
-  return S.players.map(n => ({name:n, points:S.points[n]||0, picks:S.correctPicks[n]||0}))
+  // Anyone holding points or correct picks appears, even if the player list on
+  // this device has not caught up with them yet.
+  return rosterUnion(null, [])
+    .map(n => ({name:n, points:S.points[n]||0, picks:S.correctPicks[n]||0}))
     .sort((a,b) => b.points - a.points || b.picks - a.picks || a.name.localeCompare(b.name));
 }
 
@@ -2002,7 +2029,14 @@ async function confirmResult() {
   // Points come off the fresh totals, not this device's copy
   const basePoints = data.points || {};
   const basePicks  = data.correctPicks || {};
-  S.players.forEach(pl => {
+
+  // A winner missing from this device's player list must still be scored.
+  // Scoring off S.players alone is how a correct pick was recorded as a win
+  // but never awarded any points.
+  const roster = rosterUnion(data, winners);
+  winners.forEach(w => { if (!S.players.includes(w)) S.players.push(w); });
+
+  roster.forEach(pl => {
     S.points[pl]       = basePoints[pl] || 0;
     S.correctPicks[pl] = basePicks[pl]  || 0;
   });
@@ -3121,12 +3155,27 @@ async function saveResult_toSheets(fix) {
       potWon: fix.potWon || 0, confirmedAt: new Date().toISOString()
     };
 
-    // Save updated points
+    // Save updated points for everyone we know about — including a winner this
+    // device had not yet got in its player list. Writing only S.players meant
+    // such a winner's points were silently dropped.
     if (!data.points) data.points = {};
     if (!data.correctPicks) data.correctPicks = {};
-    S.players.forEach(function(name) {
+    const names = rosterUnion(data, fix.winners || (fix.winner ? fix.winner.split(',').map(s => s.trim()) : []));
+    names.forEach(function(name) {
       data.points[name] = S.points[name] || 0;
       data.correctPicks[name] = S.correctPicks[name] || 0;
+    });
+    // Add only the winners that are missing from the shared player list, so this
+    // cannot recur next game. Writing the whole union here would resurrect any
+    // player who had been deliberately removed but still has old points.
+    const wNames = fix.winners || (fix.winner ? fix.winner.split(',').map(s => s.trim()) : []);
+    if (!Array.isArray(data.players)) data.players = (S.players || []).slice();
+    wNames.forEach(function(w) {
+      if (w && !data.players.includes(w)) {
+        data.players.push(w);
+        console.log('Added missing winner to the player list: ' + w);
+      }
+      if (w && !S.players.includes(w)) S.players.push(w);
     });
 
     // Save rotated pick order
@@ -3761,11 +3810,23 @@ async function recalcLeaderboard() {
     pot = winners.length ? 1 : pot + 1;
   });
 
-  // What actually differs from the stored totals
+  // Any winner missing from the player list joins it — otherwise their rebuilt
+  // points are written but never shown on the board.
+  if (!Array.isArray(data.players)) data.players = players.slice();
+  Object.keys(pts).forEach(function(n) {
+    if (n && !data.players.includes(n)) {
+      data.players.push(n);
+      console.log('Added missing winner to the player list: ' + n);
+    }
+  });
+
+  // What actually differs from the stored totals — checked across every name in
+  // either the old or the rebuilt totals, not just the player list
   const oldPts = data.points || {};
-  const diffs = players
-    .filter(p => (oldPts[p] || 0) !== pts[p])
-    .map(p => p + ': ' + (oldPts[p] || 0) + ' → ' + pts[p]);
+  const allNames = Array.from(new Set([].concat(players, Object.keys(pts), Object.keys(oldPts))));
+  const diffs = allNames
+    .filter(p => (oldPts[p] || 0) !== (pts[p] || 0))
+    .map(p => p + ': ' + (oldPts[p] || 0) + ' → ' + (pts[p] || 0));
 
   const changedRows = rows.filter(r => r.changed);
 
