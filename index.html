@@ -3067,12 +3067,13 @@ function applyRemoteData(data) {
     });
   }
   // Results applied via fixtures block above
-  // Merge points
-  if (data.points) {
-    Object.entries(data.points).forEach(([name, pts]) => { S.points[name] = pts; });
+  // Points: JSONBin is the source of truth, so REPLACE rather than merge.
+  // Merging meant a reset or a removed player left stale totals on the device.
+  if (data.points && Object.keys(data.points).length) {
+    S.points = Object.assign({}, data.points);
   }
-  if (data.correctPicks) {
-    Object.entries(data.correctPicks).forEach(([name, c]) => { S.correctPicks[name] = c; });
+  if (data.correctPicks && Object.keys(data.correctPicks).length) {
+    S.correctPicks = Object.assign({}, data.correctPicks);
   }
   // Merge PINs
   if (data.pins) {
@@ -3200,37 +3201,55 @@ async function saveResult_toSheets(fix) {
   } catch(err) { console.warn('DB result save failed:', err.message); }
 }
 
+// Everything the leaderboard, results and fixtures pages are drawn from.
+// Compared each poll so we only redraw when something has actually changed.
+function remoteSignature(data) {
+  const res = data.results || {};
+  return JSON.stringify([
+    data.points       || {},
+    data.correctPicks || {},
+    Object.keys(res).sort().map(k => [k, res[k].winner || '', res[k].scorer || '', res[k].potWon || 0]),
+    (data.fixtures || []).map(f => [f.id, f.result, f.datetime, f.winner || '', f.scorer || '']),
+    (data.players  || []).slice().sort(),
+    data.picksOpen
+  ]);
+}
+let _lastRemoteSig = null;
+
 async function autoSync() {
   if (!S.currentUser) return;
   try {
     const data = await dbGet();
-    if (!data.picks) return;
-    let changed = false;
-    Object.entries(data.picks).forEach(([fixId, fixPicks]) => {
-      // Normalise: merge into whichever key form already exists, preferring the integer
-      const intKey = parseInt(fixId);
-      const targetKey = (S.picks[intKey] !== undefined) ? intKey : fixId;
-      if (!S.picks[targetKey]) S.picks[targetKey] = {};
-      Object.entries(fixPicks).forEach(([k, v]) => {
-        if (S.picks[targetKey][k] !== v) { S.picks[targetKey][k] = v; changed = true; }
+
+    // ---- 1. Picks ----
+    let picksChanged = false;
+    if (data.picks) {
+      Object.entries(data.picks).forEach(([fixId, fixPicks]) => {
+        // Normalise: merge into whichever key form already exists, preferring the integer
+        const intKey = parseInt(fixId);
+        const targetKey = (S.picks[intKey] !== undefined) ? intKey : fixId;
+        if (!S.picks[targetKey]) S.picks[targetKey] = {};
+        Object.entries(fixPicks).forEach(([k, v]) => {
+          if (S.picks[targetKey][k] !== v) { S.picks[targetKey][k] = v; picksChanged = true; }
+        });
       });
-    });
-    if (changed) {
-      saveState();
-      const fix = getNextFix();
-      if (fix) {
-        const hDropdown = document.getElementById('pick-sel-h-pick-area');
-        const pDropdown = document.getElementById('pick-sel-p-pick-area');
-        const anySelection = (hDropdown && hDropdown.value) || (pDropdown && pDropdown.value);
-        if (!anySelection) {
-          renderPickSlots(fix, 'h-pick-slots', true);
-          if (document.getElementById('page-picks').classList.contains('active')) {
-            renderPickSlots(fix, 'p-pick-slots', true);
-          }
-        }
-      }
     }
-  } catch(e) { /* silent */ }
+
+    // ---- 2. Results, points and fixtures ----
+    // The poll used to carry picks and nothing else, so a confirmed result sat
+    // unseen on every other device until somebody reloaded the whole page.
+    const sig = remoteSignature(data);
+    const firstPoll = (_lastRemoteSig === null);
+    const resultsChanged = !firstPoll && sig !== _lastRemoteSig;
+    _lastRemoteSig = sig;
+
+    if (resultsChanged) applyRemoteData(data);   // applyRemoteData saves state itself
+    else if (picksChanged) saveState();
+
+    if (picksChanged || resultsChanged) {
+      refreshActivePage({ keepPickSelection: true });
+    }
+  } catch(e) { /* silent — next poll will retry */ }
 }
 
 
@@ -3878,7 +3897,30 @@ async function recalcLeaderboard() {
 }
 
 
-function renderAll() { applySeasonLabels(); renderHome(); }
+// Redraw whatever the person is actually looking at. renderAll used to redraw
+// only the home page, so a confirmed result left the leaderboard, results and
+// fixtures pages showing stale numbers until you navigated away and back.
+function refreshActivePage(opts) {
+  opts = opts || {};
+  applySeasonLabels();
+
+  // Never wipe a pick somebody is halfway through making
+  const hSel = document.getElementById('pick-sel-h-pick-area');
+  const pSel = document.getElementById('pick-sel-p-pick-area');
+  const midPick = opts.keepPickSelection && ((hSel && hSel.value) || (pSel && pSel.value));
+
+  if (!midPick) renderHome();
+
+  const active = document.querySelector('.page.active');
+  const id = active ? active.id.replace('page-', '') : '';
+  if (id === 'leaderboard') renderLeaderboard();
+  else if (id === 'results') renderResults();
+  else if (id === 'fixtures') renderFixtures(curFixTab || 'upcoming');
+  else if (id === 'admin') renderAdmin();
+  else if (id === 'picks' && !midPick) renderPicksPage();
+}
+
+function renderAll() { refreshActivePage(); }
 
 function toast(msg, type='ok') {
   const c = document.getElementById('toasts');
